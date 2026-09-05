@@ -1,0 +1,56 @@
+{
+  "deterministic": {
+    "origin": "Classic rule-based NLP",
+    "origin_url": "https://spacy.io/usage/linguistic-features",
+    "how_it_works": "No LLM. The query is split into sentences, then into clauses on coordinating conjunctions and discourse markers (\"and\", \"then\", \";\", \"finally\", ...). A sequential dependency edge is added between two clauses only when the later clause refers back to the earlier one through an anaphor (\"it\", \"that\", \"the result\", ...). Fast, free, and deterministic, but blind to intent that is not signalled by surface syntax.",
+    "example": "\"Find the tallest mountain in Africa and then say how much shorter it is than Everest\" -> s1: Find the tallest mountain in Africa?  s2: How much shorter is it than Everest?  (edge s1 -> s2, triggered by \"it\")"
+  },
+  "naive-small": {
+    "origin": "Baseline prompt · small model tier",
+    "origin_url": "https://arxiv.org/abs/2205.10625",
+    "how_it_works": "A single generic instruction — \"break this into atomic sub-questions, note dependencies\" — sent to the configured small model tier. Sub-questions are read off a numbered list; \"(depends on: N)\" hints become edges. Present purely as a scale baseline: identical prompt to naive-large, weaker model.",
+    "example": null
+  },
+  "naive-large": {
+    "origin": "Baseline prompt · large model tier",
+    "origin_url": "https://arxiv.org/abs/2205.10625",
+    "how_it_works": "The same generic decomposition instruction as naive-small, but sent to the configured large model tier. The gap between this and naive-small isolates how much decomposition quality comes from model scale alone, with the prompt held fixed.",
+    "example": null
+  },
+  "llamaindex-subq": {
+    "origin": "LlamaIndex · SubQuestionQueryEngine",
+    "origin_url": "https://docs.llamaindex.ai/en/stable/module_guides/querying/pipeline/",
+    "how_it_works": "Reproduces LlamaIndex's question generator: one LLM call returns a JSON list of sub-questions over the data sources. There is no dependency structure — every sub-question is assumed independently answerable and fanned out in parallel, then the answers are synthesised. The tool/data-source routing is dropped here since the arena has no retrieval corpus.",
+    "example": "\"Compare the GDP growth of India and Germany in 2023\" -> [\"What was India's GDP growth in 2023?\", \"What was Germany's GDP growth in 2023?\"] (no edges)"
+  },
+  "least-to-most": {
+    "origin": "Least-to-Most Prompting (Zhou et al., 2022)",
+    "origin_url": "https://arxiv.org/abs/2205.10625",
+    "how_it_works": "A two-stage method; the arena runs stage one. The model lists simpler sub-problems in solving order, each meant to build on the answers before it, so the output is always a strict linear chain. The final item, once solved, should yield the original answer.",
+    "example": "\"How many keystrokes to type the numbers 1 to 500?\" -> 1: How many 1-digit numbers are in 1..500?  2: How many 2-digit?  3: How many 3-digit?  4: Sum digit-counts. (chain 1->2->3->4)"
+  },
+  "self-ask": {
+    "origin": "Self-Ask (Press et al., 2022)",
+    "origin_url": "https://arxiv.org/abs/2210.03350",
+    "how_it_works": "Self-Ask normally interleaves follow-up questions with their answers before composing a final answer. Since the arena does not answer sub-questions, the model instead lays out the full ordered chain of follow-up questions it would ask. Chain length is model-decided, so decompositions vary in size run to run.",
+    "example": "\"Who was president when the tallest US building was completed?\" -> 1: What is the tallest US building?  2: When was it completed?  3: Who was president then? (chain)"
+  },
+  "r2-reasoner": {
+    "origin": "Route-and-Reason / R2-Reasoner (Zhang et al., WWW 2026)",
+    "origin_url": "https://arxiv.org/abs/2506.05901",
+    "how_it_works": "R2-Reasoner's router pairs a Task Decomposer with a Subtask Allocator. We reproduce the decomposer prompt (paper appendix, generalised from the P3 template): \"break the task into 3–8 chain-ordered steps, each on its own line\". Each step is then tagged small or large by a lightweight difficulty heuristic standing in for the trained Allocator. No RL checkpoint is used.",
+    "example": "Output is `step 1: ...` / `step 2: ...` lines, executed in order; steps mentioning \"prove\", \"optimise\", \"compare\" route to the large model, the rest to small."
+  },
+  "hybridflow-eag": {
+    "origin": "HybridFlow (Wanyu Group, ICML 2026)",
+    "origin_url": "https://arxiv.org/abs/2512.22137",
+    "how_it_works": "The richest DAG producer. An \"Explain-Analyze-Generate\" meta-prompt asks the planner for an XML plan; it is parsed into G(Q) = (T, E) where each subtask has a description, prerequisite indices, and a role. The plan is validated for acyclicity and reachability; on failure the planner is re-prompted with the error (up to 2 repairs); if it still fails, the subtasks run as a sequential chain. Capped at 7 subtasks. Role Generate routes to the large model, Explain/Analyze to small.",
+    "example": "<plan><subtask id=\"1\" role=\"Explain\" parents=\"\">...</subtask><subtask id=\"2\" role=\"Analyze\" parents=\"1\">...</subtask><subtask id=\"3\" role=\"Generate\" parents=\"1,2\">...</subtask></plan>"
+  },
+  "uno-orchestra": {
+    "origin": "Uno-Orchestra (Parsimonious Agent Routing)",
+    "origin_url": "https://arxiv.org/abs/2605.05007",
+    "how_it_works": "Adaptive and deliberately frugal. One LLM call jointly decides whether to decompose at all — simple queries collapse to a single direct-answer turn — and, if so, emits 2–6 subtasks with explicit `deps` forming a small dependency graph, each tagged small or large. Good for showing that the right answer is sometimes \"don't decompose\".",
+    "example": "\"What is the capital of France?\" -> decompose:false, one subtask (small).  \"Plan a 3-day Tokyo trip under $1000 covering food and transit\" -> decompose:true, 4 subtasks with deps."
+  }
+}

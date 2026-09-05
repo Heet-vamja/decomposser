@@ -1,0 +1,34 @@
+[
+  {
+    "label": "Comparative (2-hop)",
+    "query": "Which has more calories, a McDonald's Big Mac or a Burger King Whopper, and how many more?"
+  },
+  {
+    "label": "Bridge entity (3-hop)",
+    "query": "Who was the US president when the company that makes the iPhone was founded?"
+  },
+  {
+    "label": "Multi-constraint planning",
+    "query": "Plan a 3-day trip to Tokyo for two people under $1500 total, covering where to stay, daily food budget, and how to get around."
+  },
+  {
+    "label": "Aggregation",
+    "query": "How many keystrokes are needed to type all the numbers from 1 to 500?"
+  },
+  {
+    "label": "Already atomic",
+    "query": "What is the capital of Australia?"
+  },
+  {
+    "label": "Parallel sub-questions",
+    "query": "Summarise the main causes, the main effects, and two proposed solutions for ocean acidification."
+  },
+  {
+    "label": "Conditional / dependent",
+    "query": "If the population of Canada is larger than that of Poland, tell me the difference; otherwise tell me the ratio."
+  },
+  {
+    "label": "Technical how-to",
+    "query": "How do I set up a blue-green deployment for a Node.js service on AWS ECS with zero downtime?"
+  }
+]
