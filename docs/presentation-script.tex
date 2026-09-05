@@ -1,0 +1,482 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage[hidelinks]{hyperref}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\definecolor{sayc}{HTML}{1F5FBF}
+\definecolor{showc}{HTML}{0F766E}
+\definecolor{whyc}{HTML}{7C3AED}
+
+\newcommand{\say}{\textcolor{sayc}{\textbf{[SAY]}}\ }
+\newcommand{\showcue}{\textcolor{showc}{\textbf{[SHOW]}}\ }
+\newcommand{\why}{\textcolor{whyc}{\textbf{[WHY]}}\ }
+
+\titleformat{\section}{\Large\bfseries}{\thesection.}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.6em}{}
+\setlist[itemize]{leftmargin=1.4em,itemsep=2pt,topsep=2pt}
+
+\title{\textbf{Query Decomposer Arena}\\[2pt]
+\large End-to-End Presentation Script}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.5em}
+
+\noindent\textit{Cue legend:}\quad
+\say talk track \quad
+\showcue what to point at \quad
+\why the reasoning, if pressed.\\
+\textit{Approx.\ 20--25 min plus Q\&A. Trim Sections~5 and~9 if short on time.}
+
+\hrulefill
+
+\section*{0.\quad One-line pitch (say this first, 20\,s)}
+\addcontentsline{toc}{section}{0. One-line pitch}
+
+\say ``We built a benchmarking harness that takes a single complex query, runs it
+through nine different query-decomposition methods --- from a dumb rule-based
+splitter up to three 2026 SOTA papers --- and scores every method side by side on
+how well it breaks the query into sub-questions and a dependency graph. The
+contribution isn't a new decomposition algorithm; it's the evaluation framework,
+a reference-free scoring rubric, and a normalization layer that makes these very
+different methods comparable.''
+
+\section{Problem \& motivation --- the \emph{why} (2 min)}
+
+\say ``When a user asks an LLM a complex question --- something with several
+intents, or that needs multi-step reasoning --- you get better, cheaper, faster
+answers if you first \emph{decompose} it: break it into smaller sub-questions,
+figure out which ones depend on which, then solve that graph.
+
+This matters most in \textbf{edge--cloud LLM systems}. You have a small model
+on-device --- cheap, fast, private --- and a large model in the cloud ---
+expensive, slow, capable. The decomposition tells you which sub-tasks the small
+model can handle and which need the cloud. Get the decomposition wrong and you
+either overpay by sending everything to the cloud, or you get wrong answers
+because the small model choked on a hard step.
+
+There's a wave of recent work on exactly this --- HybridFlow at ICML~2026,
+Route-and-Reason at WWW~2026, Uno-Orchestra --- and they all have a decomposition
+component. But they're evaluated on different datasets, with different metrics, so
+\textbf{you can't tell which decomposition strategy is actually better}. That's
+the gap we're filling.''
+
+\why Heterogeneous methods, no common evaluation $\rightarrow$ our job is to make
+them comparable and measure them.
+
+\section{What we built --- the \emph{what} (1 min)}
+
+\say ``A full-stack web app with three parts:''
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+  \item \textbf{Catalog} --- a browsable reference of all nine decomposers: how
+  each works, what output shape it produces, the source paper.
+  \item \textbf{Playground} --- you paste a query, pick which decomposers to run,
+  hit Compare. You get every method's sub-questions, an auto-laid-out dependency
+  DAG, structural metrics, and a judge score, all side by side.
+  \item \textbf{Scoreboard} --- aggregates every comparison you've run into a
+  ranked leaderboard with per-criterion breakdowns.
+\end{enumerate}
+
+\say ``\textbf{Scope is deliberately narrow: decomposition only.} We produce the
+sub-questions and the graph and we score \emph{those}. We do \textbf{not} answer
+the sub-questions --- no retrieval, no final-answer generation. That isolates
+decomposition quality from every downstream confound.''
+
+\why If you also executed the sub-queries, a bad final answer could be the
+retriever's fault, the solver's fault, or the decomposition's fault. By stopping
+at the graph, every number we report is about decomposition and nothing else.
+
+\section{The decomposer landscape --- taxonomy (2 min)}
+
+\showcue Catalog page, filter buttons.
+
+\say ``We classify methods on two axes.
+
+\textbf{Axis 1 --- is there an LLM in the loop?}''
+\begin{itemize}
+  \item \emph{Deterministic}: rule-based, no model. Free, instant, fully
+  reproducible.
+  \item \emph{LLM-based}: a model produces the decomposition.
+\end{itemize}
+
+\say ``\textbf{Axis 2 --- what shape is the output?}''
+\begin{itemize}
+  \item \emph{Flat}: a bag of independent sub-questions, no dependencies ---
+  everything runs in parallel.
+  \item \emph{Linear}: a strict chain --- step 2 needs step 1, step 3 needs step 2.
+  \item \emph{DAG}: a real dependency graph --- some branches parallel, some
+  sequential.
+  \item \emph{Adaptive}: the method decides \emph{whether} to decompose at all;
+  simple queries stay whole.
+\end{itemize}
+
+\say ``These shapes aren't cosmetic. A flat decomposition claims `all these
+sub-tasks are independent' --- if that's wrong, you'll parallelize things that
+actually needed ordering and get garbage. A linear chain claims `nothing here is
+parallelizable' --- if that's wrong, you're leaving latency on the table.
+\textbf{The shape is a testable claim about the query.}''
+
+\section{The baselines --- what each is and \emph{why it's there} (2--3 min)}
+
+\say ``You can't say a SOTA method is `good' without reference points. We have a
+ladder of baselines, each answering a specific question.''
+
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.5cm} Y Y@{}}
+\toprule
+\textbf{Method} & \textbf{What it is} & \textbf{Why it's in the study} \\
+\midrule
+Rule-based splitter &
+spaCy: split on sentence boundaries and conjunctions (``and'', ``then'', ``;''),
+add a sequential edge only when a clause refers back with a pronoun (``it'', ``the
+result'') &
+The \textbf{zero-cost, zero-LLM floor.} If an expensive LLM method can't beat
+regex + a parser, it isn't earning its cost. \\
+\addlinespace
+Naive prompt --- small model &
+One generic instruction: ``break this into atomic sub-questions, note
+dependencies'' &
+Baseline half of a \textbf{scale ablation.} \\
+\addlinespace
+Naive prompt --- large model &
+\emph{Identical prompt}, large model &
+Other half. The gap between these two isolates \textbf{how much decomposition
+quality is just model size vs.\ the method/prompt.} This is the key control. \\
+\addlinespace
+LlamaIndex SubQuestionQueryEngine &
+Reproduces the question generator from a production RAG library --- flat JSON list &
+\textbf{The practitioner baseline} --- what an engineer actually reaches for today. \\
+\addlinespace
+Least-to-Most (Zhou et al., 2022) &
+Ordered list of easier sub-problems $\rightarrow$ linear chain &
+\textbf{Pre-DAG-era classic.} Shows what the field did before dependency graphs. \\
+\addlinespace
+Self-Ask (Press et al., 2022) &
+Chain of follow-up questions, length decided by the model &
+Classic, and the one method with \textbf{dynamic decomposition size.} \\
+\bottomrule
+\end{tabularx}
+
+\why The naive-small vs naive-large pair is the most important design choice.
+Without it, a reviewer can say ``your SOTA method just wins because it uses a
+bigger model.'' With it, we separate \emph{method contribution} from \emph{scale
+contribution}.
+
+\section{The SOTA methods --- how they work (3 min)}
+
+\say ``Then the three frontier methods. We reproduce each paper's
+\textbf{decomposition prompt and procedure} for inference only --- no fine-tuning,
+no RL checkpoints --- so the comparison is about the \emph{method design}, not who
+trained longer.''
+
+\paragraph{HybridFlow (ICML 2026) --- the richest DAG producer.}
+\say ``Uses an `Explain--Analyze--Generate' meta-prompt. The planner emits an XML
+plan; we deterministically parse it into a graph where each sub-task has a
+description, a role label, and a list of prerequisite IDs. Then we \emph{validate}:
+is it acyclic? is every node reachable? If not, we re-prompt the model with the
+specific error, up to twice. If it still fails, we fall back to a sequential
+chain. Capped at 7 sub-tasks, matching the paper. Role `Generate' routes to the
+large model, the rest to small.''
+
+\paragraph{Route-and-Reason / R2-Reasoner (WWW 2026) --- linear + routing.}
+\say ``Its router has two parts: a Task Decomposer that produces a chain of 3--8
+steps, and a Subtask Allocator that assigns each step to a model. We reproduce the
+decomposer prompt verbatim from the appendix. For the allocator, which in the
+paper is RL-trained, we use a lightweight difficulty heuristic as a documented
+stand-in --- steps mentioning `prove', `compare', `optimize' go large, the rest
+go small.''
+
+\paragraph{Uno-Orchestra --- parsimonious / adaptive.}
+\say ``One LLM call that jointly decides \emph{whether} to decompose and how to
+route. Simple queries collapse to a single direct-answer node at zero
+orchestration cost; only genuinely compositional queries pay for a multi-node
+graph. It's the method that can correctly answer: `don't decompose this.'\,''
+
+\showcue Run a simple query (``What is the capital of Australia?'') and point at
+Uno-Orchestra returning one node while the others over-split.
+
+\section{Making them comparable --- normalization \& guarantees (1.5 min)}
+
+\say ``These nine methods produce wildly different raw output --- XML, JSON,
+numbered lists, prose. We normalize everything to one schema: \textbf{a list of
+sub-queries with IDs, plus a list of directed edges} where an edge
+A~$\rightarrow$~B means B depends on A.
+
+Then two guarantees are enforced centrally, so every method gets them for free:''
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+  \item \textbf{Always acyclic.} We drop edges that point to non-existent nodes,
+  then break any cycles with a minimal edge removal, and flag it. So `is it a
+  valid DAG' is never in question --- a method can't cheat by emitting a
+  contradictory graph.
+  \item \textbf{No invention.} Every LLM method's system prompt carries a shared
+  rule: \emph{do not introduce any entity, name, number, or constraint that isn't
+  in the query.} This is enforced at the prompt level AND checked independently by
+  the judge.
+\end{enumerate}
+
+\why Normalization is a real contribution --- it's what lets you put HybridFlow's
+XML DAG next to Self-Ask's prose chain on the same axis.
+
+\section{Scoring --- the \emph{how} of measurement (3--4 min)}
+
+\say ``Two kinds of measurement: structural metrics we \emph{compute}, and quality
+criteria we \emph{judge}.''
+
+\subsection{Structural metrics --- deterministic, from graph theory}
+
+\say ``These are objective and free. We compute them with a graph library:''
+\begin{itemize}
+  \item \textbf{Sub-query count} --- how granular is the decomposition.
+  \item \textbf{Depth} --- the longest dependency chain. This is the
+  \textbf{critical path}: it lower-bounds end-to-end latency, because you can't
+  parallelize a chain.
+  \item \textbf{Parallelism / width} --- the largest set of mutually independent
+  sub-queries (formally, the maximum antichain). This upper-bounds your speedup
+  from parallel execution.
+  \item \textbf{Roots / leaves} --- entry and exit points of the graph.
+\end{itemize}
+
+\say ``We do \textbf{not} ask an LLM to count these. If a computer can measure it
+exactly, an LLM shouldn't estimate it.''
+
+\why Depth and width are the metrics that turn a decomposition into a
+latency/cost prediction. A method that produces depth~10 is claiming a 10-step
+serial pipeline; a method with width~3 is claiming 3$\times$ parallelism is
+available.
+
+\subsection{LLM-as-judge --- reference-free, 5 criteria}
+
+\say ``For quality we use an LLM as a judge. Crucially, it's \textbf{reference-free}
+--- we score the decomposition against the \emph{original query itself}, not
+against a gold-standard decomposition.''
+
+\say ``\textit{Why reference-free:} there is no gold-standard dataset of `correct'
+decompositions for arbitrary queries. Building one is expensive, and worse, it's
+subjective --- reasonable people decompose the same query differently. So instead
+of asking `does this match the one true answer', we ask `is this decomposition
+internally sound with respect to the query'. Five criteria, each scored 1 to 5:''
+
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{3.1cm} Y Y@{}}
+\toprule
+\textbf{Criterion} & \textbf{Question it asks} & \textbf{Why it matters} \\
+\midrule
+Coverage &
+Is every intent and constraint in the query captured by some sub-query? &
+Recall. Missing an intent means the final answer will be incomplete. \\
+\addlinespace
+Minimality / non-redundancy &
+Are sub-queries non-overlapping and not over-split? &
+Redundant sub-queries waste model calls; over-splitting inflates latency and cost. \\
+\addlinespace
+Faithfulness &
+Did it avoid inventing entities, numbers, or constraints not in the query? &
+Hallucinated constraints steer the whole pipeline wrong. Score~1 if anything is
+fabricated. \\
+\addlinespace
+Standalone answerability &
+Can each sub-query be answered given only the answers to its declared parents? &
+If a sub-query secretly needs context it doesn't list, the dependency graph is a
+lie. \\
+\addlinespace
+Dependency correctness &
+Are the parallel-vs-sequential edges right --- none missing, none spurious? &
+\textbf{This is what makes the latency and cost numbers trustworthy.} Wrong edges
+= wrong performance claims. \\
+\bottomrule
+\end{tabularx}
+
+\say ``Overall score is the mean of the five. Per run, we judge each of the nine
+decompositions once. The Scoreboard then averages across every run in the session
+to give a ranked leaderboard plus the per-criterion breakdown and the average
+structural stats.''
+
+\showcue Scoreboard: point at the ranking, then at a per-criterion column where a
+method is weak (e.g.\ Least-to-Most low on minimality because it over-splits).
+
+\section{Architecture --- the \emph{how} of the system (1.5 min)}
+
+\say
+\begin{itemize}
+  \item \textbf{Backend}: FastAPI, completely stateless --- no database. One
+  endpoint runs all selected decomposers concurrently, isolates failures per
+  method, then judges each result.
+  \item \textbf{LLMs}: Hugging Face Inference Providers. We pass a \emph{pool} of
+  API tokens; the backend round-robins across them and rotates on rate-limit
+  errors, so a long comparison doesn't stall. Two model tiers, `small' and
+  `large', both configurable --- nothing is hard-coded.
+  \item \textbf{Judge model}: defaults to the large model. We're upfront that this
+  creates a mild self-bias toward large-tier methods; it's flagged in the UI and
+  the judge model is swappable.
+  \item \textbf{Frontend}: React + Vite + TypeScript. The DAG visualization is
+  React Flow with automatic layout; the judge scorecards are radar charts.
+  \item \textbf{Tests}: 20 unit tests, all with the LLM stubbed --- parser
+  robustness, graph-metric correctness, and the HybridFlow repair-and-fallback
+  path.
+\end{itemize}
+
+\section{Live demo (2 min) --- exact steps}
+
+\say ``Let me run one query.'' \showcue Paste:
+
+\begin{quote}
+\itshape
+``I'm designing an edge--cloud LLM system where a small on-device model and a
+large cloud model work together. Compare how HybridFlow, Route-and-Reason, and
+Uno-Orchestra each decompose a user query into subtasks and decide which subtasks
+go to the small model versus the large one. Then, assuming a budget of at most two
+cloud calls per query and a latency target under two seconds, tell me which
+approach is the best fit and the main trade-off.''
+\end{quote}
+
+\say ``This query is deliberately compositional --- three method descriptions that
+can be worked out in parallel, then a comparison that depends on all three, then a
+trade-off that depends on the comparison.''
+
+\showcue In order:
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+  \item \textbf{HybridFlow / Uno-Orchestra panels} --- point at the DAG: width~3
+  at the top (the three methods, parallel), narrowing to a chain (compare
+  $\rightarrow$ pick $\rightarrow$ trade-off). ``This is the correct shape.''
+  \item \textbf{LlamaIndex / rule-based panels} --- ``Flat. It lost the ordering
+  entirely --- it would try to answer `which is best' before describing the
+  methods.''
+  \item \textbf{naive-small vs naive-large} --- ``Same prompt. The small model
+  over-splits into a dozen shallow questions; the large model produces a clean
+  graph. That gap is the scale effect.''
+  \item \textbf{Judge radars} --- point at dependency-correctness: high for the
+  DAG methods, low for the flat ones.
+  \item \textbf{Scoreboard} --- ``Ranked. The DAG-native methods lead on
+  dependency correctness; the flat methods lead on latency because they're one
+  model call.''
+\end{enumerate}
+
+\section{What the comparison reveals --- findings (1.5 min)}
+
+\say
+\begin{itemize}
+  \item \textbf{Model scale matters, but so does method.} naive-large already
+  beats the classic methods on our rubric --- but the DAG-native methods
+  (HybridFlow, Uno) beat naive-large on dependency correctness at the \emph{same}
+  model size.
+  \item \textbf{Flat methods systematically lose dependency correctness} on
+  compositional queries --- they can't represent ordering.
+  \item \textbf{The classic linear methods (Least-to-Most, Self-Ask)
+  over-decompose} --- dinged on minimality because they force a chain even when
+  branches are independent.
+  \item \textbf{Adaptive decomposition is underrated} --- Uno-Orchestra is the
+  only method that correctly \emph{declines} to decompose atomic queries; the
+  rest always split, wasting calls.
+  \item \textbf{The rule-based floor is not zero} --- for simple ``A and B''
+  queries it's competitive with the LLMs at zero cost, which tells you when
+  \emph{not} to spend a model call on decomposition.
+\end{itemize}
+
+\section{Limitations --- be honest (1.5 min)}
+
+\say
+\begin{itemize}
+  \item \textbf{Judge self-bias.} Judge = large model, so large-tier methods may
+  get a small unearned edge. Flagged; mitigation would be an ensemble of judges or
+  a different judge family.
+  \item \textbf{Reference-free scoring is an approximation.} We measure internal
+  soundness, not correctness against a ground truth, because no ground truth
+  exists for arbitrary queries.
+  \item \textbf{We reproduce prompts, not trained systems.} R2-Reasoner's real
+  allocator is RL-trained; HybridFlow's planner is fine-tuned. Our versions use
+  base instruct models, so absolute numbers understate the papers --- but the
+  \emph{relative method comparison} holds.
+  \item \textbf{Decomposition only.} We don't execute the graph, so we can't yet
+  report actual end-to-end latency, cost, or answer accuracy --- only the
+  structural predictors of them.
+  \item \textbf{Single judge call per decomposition}, no self-consistency;
+  LLM-judge scores have variance.
+\end{itemize}
+
+\section{Future work (1 min)}
+
+\say
+\begin{itemize}
+  \item \textbf{Execute the DAG} --- answer sub-queries with the routed models,
+  measure real latency, real cloud cost, and final-answer accuracy against
+  multi-hop QA datasets (HotpotQA, MuSiQue). Then correlate our structural
+  predictors (depth, width) with measured performance.
+  \item \textbf{Judge ensemble} to kill self-bias.
+  \item \textbf{Add the trained checkpoints} for R2-Reasoner / HybridFlow to close
+  the reproduction gap.
+  \item \textbf{A recommender} --- given a new query, predict which decomposer to
+  use.
+  \item \textbf{Optional gold set} --- hand-annotate $\sim$50 queries so we can
+  report recall/precision against references alongside the reference-free scores.
+\end{itemize}
+
+\section{Anticipated questions + answers}
+
+\paragraph{Q: What's novel here --- you didn't invent a decomposition algorithm.}
+The novelty is the evaluation. Three things: (1)~a normalization layer that maps
+heterogeneous method outputs --- XML, JSON, prose --- onto one comparable
+sub-query\,+\,DAG schema with guaranteed validity; (2)~a reference-free scoring
+rubric purpose-built for decomposition quality, since no gold-standard exists;
+(3)~the controlled baseline design, especially the same-prompt/different-scale
+pair that separates method contribution from model size. It's a
+systems-and-evaluation contribution, not an algorithms one.
+
+\paragraph{Q: Why not just use a gold-standard dataset and compute exact-match?}
+Because ``the correct decomposition'' isn't well-defined for open-ended queries
+--- annotators disagree. Datasets like Break/QDMR exist for narrow QA but don't
+generalize. Reference-free judging lets us evaluate any query; the cost is that we
+measure soundness, not correctness. Adding a small gold set is future work.
+
+\paragraph{Q: How do you know the LLM judge is reliable?}
+We don't fully --- that's a stated limitation. We reduce the risk by (a)~computing
+everything objective --- counts, depth, width, acyclicity --- deterministically
+instead of asking the judge, (b)~giving the judge a tight 1--5 rubric with
+explicit criteria rather than a vibe score, (c)~temperature~0. Self-consistency
+and a judge ensemble are the next step.
+
+\paragraph{Q: Why does the judge share the large model with some decomposers?}
+Practicality --- one model to host. It biases toward large-tier methods; we flag
+it in the UI and the judge model is a config setting. Proper fix is a judge from a
+different model family.
+
+\paragraph{Q: The scoreboard resets on reload --- why no database?}
+Deliberate. The tool is for interactive exploration, not a persistent benchmark
+leaderboard. Statelessness keeps it simple and reproducible. A persistent
+benchmark mode is future work once we add DAG execution.
+
+\paragraph{Q: What does ``parallelism / width'' actually mean formally?}
+The size of the maximum antichain in the dependency DAG --- the largest set of
+sub-queries with no path between any two of them. By Dilworth's theorem that
+equals the minimum number of chains needed to cover the graph, which is the
+minimum number of sequential ``waves'' of execution. It's the theoretical max
+speedup from parallel execution.
+
+\paragraph{Q: Could a method game your metrics?}
+The structural ones, somewhat --- you could emit width-heavy graphs to look
+parallelizable. That's exactly why dependency-correctness is a judged criterion:
+the judge checks whether the claimed parallel edges are actually justified.
+Structural metrics describe the graph; the judge checks whether the graph is
+\emph{honest}.
+
+\vfill
+\hrulefill
+
+\noindent\footnotesize
+Sources: HybridFlow --- arXiv:2512.22137 (ICML 2026);
+Route-and-Reason / R2-Reasoner --- arXiv:2506.05901 (WWW 2026);
+Uno-Orchestra --- arXiv:2605.05007;
+Least-to-Most --- arXiv:2205.10625 (Zhou et al., 2022);
+Self-Ask --- arXiv:2210.03350 (Press et al., 2022).
+
+\end{document}
